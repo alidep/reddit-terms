@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Line Chart</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Volkhov:wght@400;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;700&display=swap">
+    <style>
+        body {
+            font-family: 'Volkhov', serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        h1 {
+            font-family: 'Volkhov', serif;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .line {
+            fill: none;
+            stroke-width: 2px;
+        }
+        .axis text {
+            font-family: 'Volkhov', serif;
+            font-size: 12px;
+        }
+        .legend-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .legend-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 5px 0;
+        }
+        .legend {
+            display: flex;
+            align-items: center;
+            margin: 5px;
+            cursor: pointer;
+            font-family: 'Work Sans', sans-serif;
+        }
+        .legend rect {
+            width: 18px;
+            height: 18px;
+            stroke-width: 1;
+            stroke: black;
+        }
+        .legend span {
+            margin-left: 5px;
+        }
+        .bold {
+            font-weight: bold;
+        }
+        .line-chart {
+            width: 100%;
+            height: 500px;
+            margin-top: 40px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Interactive Line Chart of Reddit Term Mentions</h1>
+    <div class="legend-container">
+        <div class="legend-row" id="row1"></div>
+        <div class="legend-row" id="row2"></div>
+    </div>
+    <svg id="line-chart" class="line-chart"></svg>
+
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <script>
+        const margin = {top: 100, right: 20, bottom: 80, left: 60};
+        const width = window.innerWidth - margin.left - margin.right;
+        const height = 500 - margin.top - margin.bottom;
+
+        const svg = d3.select("#line-chart")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const x = d3.scaleLinear().range([0, width]);
+        const y = d3.scaleLinear().range([height, 0]);
+        const color = d3.scaleOrdinal(d3.schemeCategory10);
+
+        const xAxis = d3.axisBottom(x)
+            .tickFormat(d3.format("d")); // Format ticks as plain integers
+
+        const yAxis = d3.axisLeft(y);
+
+        const line = d3.line()
+            .x(d => x(d.year))
+            .y(d => y(d.count));
+
+        let selectedTerm = null; // Track the currently selected term
+
+        function validateData(data) {
+            data.forEach(d => {
+                if (isNaN(d.year) || isNaN(d.count)) {
+                    console.error('Invalid data:', d);
+                }
+            });
+        }
+
+        function updateDimensions() {
+            const newWidth = window.innerWidth - margin.left - margin.right;
+            svg.attr("width", newWidth + margin.left + margin.right);
+            x.range([0, newWidth]);
+            svg.select(".x.axis").call(xAxis);
+        }
+
+        d3.csv("reddit_term_counts.csv").then(data => {
+            // Parse data and convert year and count to numbers
+            data.forEach(d => {
+                d.year = +d.Year;
+                d.count = +d.Count;
+            });
+
+            // Validate parsed data
+            validateData(data);
+
+            // Get unique terms for coloring
+            const terms = Array.from(new Set(data.map(d => d.Term)));
+            color.domain(terms);
+
+            // Group data by term
+            const groupedData = d3.group(data, d => d.Term);
+
+            // Set domains for scales
+            x.domain(d3.extent(data, d => d.year));
+            y.domain([0, d3.max(data, d => d.count)]);
+
+            // Append x-axis
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", `translate(0,${height})`)
+                .call(xAxis)
+              .append("text")
+                .attr("x", width / 2)
+                .attr("y", margin.bottom - 10)
+                .style("text-anchor", "middle")
+                .text("Year");
+
+            // Append y-axis
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+              .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -margin.left + 10)
+                .attr("x", -height / 2)
+                .style("text-anchor", "middle")
+                .text("Mentions");
+
+            // Create line paths for each term
+            const lines = svg.selectAll(".line")
+                .data(terms)
+              .enter().append("path")
+                .attr("class", "line")
+                .attr("d", d => {
+                    const dataForTerm = groupedData.get(d);
+                    return dataForTerm ? line(dataForTerm) : null;
+                })
+                .attr("stroke", d => color(d))
+                .attr("fill", "none")
+                .style("opacity", 0.5)
+                .style("stroke-width", 2)
+                .attr("data-term", d => d); // Attach the term to the path for easy selection
+
+            // Debug: Ensure lines are being created
+            console.log("Lines created for terms:", terms);
+
+            // Create legends
+            const row1Terms = [
+                'Cultural Marxism', 'Socialism', 'Communism', 'Globalists',
+                'Deep State', 'Open Borders', 'Woke', 'Woke Mind Virus', 'Critical Race Theory'
+            ];
+            const row2Terms = [
+                'DEI', 'Antifa', 'The Great Replacement', 'SJW', 'Gender Ideology',
+                'Transgender Agenda', 'Cultural Elites', 'Radical Left', 'Gay Lobby', 'Fake News'
+            ];
+
+            function createLegendRow(rowId, terms) {
+                const legends = d3.select(`#${rowId}`).selectAll(".legend")
+                    .data(terms)
+                  .enter().append("div")
+                    .attr("class", "legend")
+                    .on("click", function(event, d) {
+                        selectedTerm = d; // Set the selected term
+                        updateChart(selectedTerm); // Update chart and legend styles
+                    });
+
+                legends.append("rect")
+                    .style("fill", d => color(d))
+                    .style("stroke", "black");
+
+                legends.append("span")
+                    .text(d => d);
+            }
+
+            createLegendRow('row1', row1Terms);
+            createLegendRow('row2', row2Terms);
+
+            function updateChart(selectedTerm) {
+                console.log("Selected Term:", selectedTerm); // Debugging: Check the selected term
+
+                svg.selectAll(".line")
+                    .style("opacity", function() {
+                        return d3.select(this).attr("data-term") === selectedTerm ? 1 : 0.25;
+                    })
+                    .style("stroke-width", function() {
+                        return d3.select(this).attr("data-term") === selectedTerm ? 4 : 2;
+                    });
+
+                d3.selectAll(".legend")
+                    .style("opacity", legend => legend === selectedTerm ? 1 : 0.5)
+                    .classed("bold", legend => legend === selectedTerm);
+            }
+
+            // Interaction with lines
+            d3.selectAll(".line").on("click", function(event, d) {
+                selectedTerm = d; // Set the selected term
+                updateChart(selectedTerm); // Update chart and legend styles
+            });
+
+            // Animation for lines
+            svg.selectAll(".line")
+              .transition()
+              .duration(1000)
+              .attr("d", d => line(groupedData.get(d)))
+              .ease(d3.easeLinear);
+        }).catch(error => {
+            console.error('Error loading or parsing data:', error);
+        });
+
+        window.addEventListener('resize', updateDimensions);
+    </script>
+</body>
+</html>

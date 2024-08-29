@@ -1,0 +1,44 @@
+import praw
+from collections import defaultdict
+from datetime import datetime
+import csv
+
+# Step 1: Initialize the Reddit API client
+reddit = praw.Reddit(
+    client_id='YOUR_CLIENT_ID',        # Replace with your client_id
+    client_secret='YOUR_CLIENT_SECRET',# Replace with your client_secret
+    user_agent='YOUR_USER_AGENT'       # Replace with your user_agent (e.g., 'RedditTermTracker/0.1 by YourUsername')
+)
+
+# Step 2: Define the terms to track
+search_terms = [
+    "Cultural Marxism", "Socialism", "Communism", "Globalists",
+    "Deep State", "Open Borders", "Woke", "Woke Mind Virus",
+    "Critical Race Theory", "DEI", "Antifa", "The Great Replacement",
+    "SJW", "Gender Ideology", "Transgender Agenda", "Cultural Elites",
+    "Radical Left", "LGBTQ+ Agenda", "Fake News"
+]
+
+# Step 3: Set up a data structure to hold the results
+term_counts_by_year = defaultdict(lambda: defaultdict(int))
+
+# Step 4: Query Reddit for each term and aggregate results by year
+for term in search_terms:
+    print(f"Searching for term: {term}")
+    for submission in reddit.subreddit('all').search(term, time_filter='all', limit=1000):
+        year = datetime.fromtimestamp(submission.created_utc).year
+        term_counts_by_year[term][year] += 1
+
+# Step 5: Output the results
+for term, counts in term_counts_by_year.items():
+    print(f"{term}: {counts}")
+
+# Step 6: Save the results to a CSV file
+with open('reddit_term_counts.csv', mode='w') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Term", "Year", "Count"])
+    for term, counts in term_counts_by_year.items():
+        for year, count in counts.items():
+            writer.writerow([term, year, count])
+
+print("Data collection complete. Results saved to 'reddit_term_counts.csv'.")
